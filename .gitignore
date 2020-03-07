@@ -32,3 +32,5 @@
 
 # vs project 
 intersect
+*.pdb
+*.ilk

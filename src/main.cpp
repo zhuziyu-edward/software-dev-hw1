@@ -1,8 +1,5 @@
 #include <iostream>
-
-namespace hw1 {
-
-};
+#include "intersect.h"
 
 int main() {
     std::cout << "hello world" << std::endl;
