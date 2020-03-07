@@ -3,7 +3,8 @@
 
 int main(int argc, char *argv[]) {
 	CommandLineParser cmdParser;
-	cmdParser.parse(argc, argv);
+	if (!cmdParser.parse(argc, argv))
+		return 0;
 	FileReader input(cmdParser.getInputFile());
 	FileWriter output(cmdParser.getOutputFile());
 	Intersect solution;

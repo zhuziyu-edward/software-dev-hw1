@@ -4,7 +4,11 @@
 #include <fstream>
 #include <sstream>
 #include <memory>
+#include <vector>
+#include <set>
 using namespace std;
+
+typedef pair<double, double> Point2D;
 
 class CommandLineParser {
 private:
@@ -21,7 +25,7 @@ private:
 	}
 
 public:
-	void parse(int argc, char* argv[]) {
+	bool parse(int argc, char* argv[]) {
 		if (argc == 2 && string(argv[1]) == "-h")
 			showHelp();
 		else if (argc == 5) {
@@ -33,9 +37,11 @@ public:
 				inputFile = string(argv[4]);
 				outputFile = string(argv[2]);
 			}
+			return true;
 		}
 		else
 			showError();
+		return false;
 	}
 
 	string getInputFile() { return inputFile; }
@@ -45,13 +51,10 @@ public:
 	friend ostream& operator<<(ostream& os, const CommandLineParser& p);
 };
 
-
 ostream& operator<<(ostream& os, const CommandLineParser& p) {
 	os << p.inputFile << " " << p.outputFile;
 	return os;
 }
-
-
 
 enum GeomType {
 	_LINE = 0,
@@ -66,16 +69,61 @@ public:
 	GeometryObject(GeomType t) : type(t) { }
 	GeometryObject() = default;
 	virtual ~GeometryObject() { }
+	virtual pair<bool, Point2D> getIntersectPoint(shared_ptr<GeometryObject> &other) = 0;
 	friend class FileReader;
+	friend class Interset;
+	friend class Line;
 };
+
+Point2D saveBit(const Point2D p) {
+	return {int(p.first * 100000) / 100000.0, int(p.second * 100000) / 100000.0};
+}
 
 class Line : public GeometryObject {
 protected:
 	int x1, x2, y1, y2;
 
+	bool isParToY() { return x1 == x2; }
+
+	Point2D getLineParam() {
+		double k = (y1 - y2) / (x1 - x2);
+		double b = y1 - k * x1;
+		return { k, b };
+	}
+
+	Point2D getPointAtX(double x) {
+		double k = (y1 - y2) / (x1 - x2);
+		double b = y1 - k * x1;
+		return { x, k * x + b };
+	}
+
 public:
 	Line(int a, int b, int c, int d) : GeometryObject(GeomType::_LINE), x1(a), y1(b), x2(c), y2(d) { }
+
+	pair<bool, Point2D> getIntersectPoint(shared_ptr<GeometryObject> &other) override {
+		if (other->type == GeomType::_LINE) {
+			shared_ptr<Line> otherLine = dynamic_pointer_cast<Line>(other);
+			if (this->isParToY() && otherLine->isParToY())
+				return { false, {0, 0} };
+			else if (this->isParToY()) 
+				return { true, saveBit(otherLine->getPointAtX(this->x1)) };
+			else if (otherLine->isParToY()) 
+				return { true, saveBit(this->getPointAtX(otherLine->x1)) };
+			else {
+				Point2D param1 = this->getLineParam();
+				Point2D param2 = otherLine->getLineParam();
+				double x = (param1.second - param2.second) / (param2.first - param1.first);
+				double y = param1.first * x + param1.second;
+				return { true, saveBit({ x, y }) };
+			}
+		}
+		else {
+			// for circle
+			return { false, {0, 0} };
+		}
+	}
 	friend class FileReader;
+	friend class Intersect;
 };
 
 /*
@@ -136,12 +184,20 @@ public:
 
 class Intersect {
 public:
-	int result = 0;
-
 	int getIntersect(FileReader& reader) {
-		int lineCount = reader.readIntLine();
+		int lineCount = reader.readIntLine(), result = 0;
+		vector<shared_ptr<GeometryObject>> objList;
+		set<Point2D> pointSet;
 		while (lineCount--) {
-			reader.readGeomObject();
+			shared_ptr<GeometryObject> t = reader.readGeomObject();
+			for (auto& obj : objList) {
+				auto p = t->getIntersectPoint(obj);
+				if (p.first && pointSet.count(p.second) == 0) {
+					pointSet.insert(p.second);
+					result++;
+				}
+			}
+			objList.push_back(t);
 		}
 		return result;
 	}
