@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <math.h>
 using namespace std;
 
 typedef pair<double, double> Point2D;
@@ -56,7 +57,7 @@ ostream& operator<<(ostream& os, const CommandLineParser& p) {
 	return os;
 }
 
-enum GeomType {
+enum class GeomType {
 	_LINE = 0,
 	_CIRCLE = 1
 };
@@ -112,6 +113,8 @@ public:
 			else {
 				Point2D param1 = this->getLineParam();
 				Point2D param2 = otherLine->getLineParam();
+				if (fabs(param1.first - param2.first) < 1e-5)
+					return { false, {0, 0} };
 				double x = (param1.second - param2.second) / (param2.first - param1.first);
 				double y = param1.first * x + param1.second;
 				return { true, saveBit({ x, y }) };
@@ -180,7 +183,6 @@ public:
 		file << x << endl;
 	}
 };
-
 
 class Intersect {
 public:

@@ -11,5 +11,5 @@ int main(int argc, char *argv[]) {
 	output.writeIntLine(solution.getIntersect(input));
 	return 0;
 }
-
+	
 
