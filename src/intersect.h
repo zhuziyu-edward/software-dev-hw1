@@ -7,6 +7,7 @@
 #include <vector>
 #include <set>
 #include <math.h>
+#include <unordered_set>
 using namespace std;
 
 typedef pair<double, double> Point2D;
@@ -77,7 +78,7 @@ public:
 };
 
 Point2D saveBit(const Point2D p) {
-	return {int(p.first * 100000) / 100000.0, int(p.second * 100000) / 100000.0};
+	return {p.first, p.second};
 }
 
 class Line : public GeometryObject {
@@ -87,15 +88,20 @@ protected:
 	bool isParToY() { return x1 == x2; }
 
 	Point2D getLineParam() {
-		double k = (y1 - y2) / (x1 - x2);
+		double k = (y1 - y2) / double(x1 - x2);
 		double b = y1 - k * x1;
 		return { k, b };
 	}
 
 	Point2D getPointAtX(double x) {
-		double k = (y1 - y2) / (x1 - x2);
-		double b = y1 - k * x1;
-		return { x, k * x + b };
+		return { x, (y1 - y2) * (x - x1) /  double(x1 -x2) + y1};
+	}
+
+	bool isParToOther(shared_ptr<Line> otherLine) {
+		if ((y1 - y2) * (otherLine->x1 - otherLine->x2) == (otherLine->y1 - otherLine->y2) * (x1 - x2))
+			return true;
+		else
+			return false;
 	}
 
 public:
@@ -111,10 +117,10 @@ public:
 			else if (otherLine->isParToY()) 
 				return { true, saveBit(this->getPointAtX(otherLine->x1)) };
 			else {
+				if (this->isParToOther(otherLine))
+					return { false, {0, 0} };
 				Point2D param1 = this->getLineParam();
 				Point2D param2 = otherLine->getLineParam();
-				if (fabs(param1.first - param2.first) < 1e-5)
-					return { false, {0, 0} };
 				double x = (param1.second - param2.second) / (param2.first - param1.first);
 				double y = param1.first * x + param1.second;
 				return { true, saveBit({ x, y }) };
@@ -184,17 +190,24 @@ public:
 	}
 };
 
+struct pairHash {
+	template <class T1, class T2>
+	size_t operator()(const pair<T1, T2>& pair) const {
+		return hash<T1>()(pair.first) ^ hash<T2>()(pair.second);
+	}
+};
+
 class Intersect {
 public:
 	int getIntersect(FileReader& reader) {
 		int lineCount = reader.readIntLine(), result = 0;
 		vector<shared_ptr<GeometryObject>> objList;
-		set<Point2D> pointSet;
+		unordered_set<Point2D, pairHash> pointSet;
 		while (lineCount--) {
 			shared_ptr<GeometryObject> t = reader.readGeomObject();
 			for (auto& obj : objList) {
 				auto p = t->getIntersectPoint(obj);
-				if (p.first && pointSet.count(p.second) == 0) {
+				if (p.first && pointSet.find(p.second) == pointSet.end()) {
 					pointSet.insert(p.second);
 					result++;
 				}
